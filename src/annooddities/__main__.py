@@ -116,19 +116,19 @@ class AnnoOddities:
         self.gff_name = os.path.basename(self.gff)
 
         # genome dna index
-        self.genome_db = str()
+        self.genome_db = ""
 
-        self.sanitised_gff = str()
-        self.agat_statistics_yaml = str()
-        self.agat_statistics_json = str()
-        self.agat_statistics_toml = str()
-        self.gffread_table = str()
-        self.mikado_tab_stats = str()
-        self.mikado_stats = str()
-        self.mikado_stats_yaml = str()
-        self.mikado_stats_json = str()
-        self.mikado_stats_toml = str()
-        self.mikado_basic_stats = str()
+        self.sanitised_gff = ""
+        self.agat_statistics_yaml = ""
+        self.agat_statistics_json = ""
+        self.agat_statistics_toml = ""
+        self.gffread_table = ""
+        self.mikado_tab_stats = ""
+        self.mikado_stats = ""
+        self.mikado_stats_yaml = ""
+        self.mikado_stats_json = ""
+        self.mikado_stats_toml = ""
+        self.mikado_basic_stats = ""
 
         # for extraction of oddities from gff3, store tid, gid and oddities matched
         self.oddity_tid_info = defaultdict(dict)
@@ -565,13 +565,13 @@ class AnnoOddities:
                     # logic: if for a transcript with 10 introns, 4 on the positive strand and 6 on the negative strand, and all 10 junctions are canonical, then canonical intron count is based on the higher count of canonical junctions on either strand, i.e., 6 in this case or 0.6 proportion and suspicious. If for a transcript with 10 introns, 4 on the positive strand and 6 on the negative strand, and only 2 junctions are canonical (1 on each strand), then canonical intron count is 1 (higher of the two), proportion is 0.1 and suspicious.
                     elif junction_type == "unknown":
                         if (
-                            strand_sign in [":und:.+:"]
+                            strand_sign == ":und:.+:"
                             and junction in CANONICAL_INTRON_MOTIFS
                         ):
                             unknown_positive_canonical_count += count
                             unknown_positive_junction_found = True
                         if (
-                            strand_sign in [":und:.-:"]
+                            strand_sign == ":und:.-:"
                             and junction in CANONICAL_INTRON_MOTIFS
                         ):
                             unknown_negative_canonical_count += count
@@ -584,9 +584,9 @@ class AnnoOddities:
                             suspicious_count += count
                             unknown_predicted_strand = "?"
                         else:
-                            if strand_sign in [":und:.+:"]:
+                            if strand_sign == ":und:.+:":
                                 unknown_predicted_strand = "+"
-                            elif strand_sign in [":und:.-:"]:
+                            elif strand_sign == ":und:.-:":
                                 unknown_predicted_strand = "-"
 
                         if (
