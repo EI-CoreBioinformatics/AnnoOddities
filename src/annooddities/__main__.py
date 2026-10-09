@@ -20,6 +20,12 @@ from pyfaidx import Fasta
 script = os.path.basename(sys.argv[0])
 executed_command = " ".join(sys.argv)
 
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
+logger = logging.getLogger("annooddities")
 
 CANONICAL_INTRON_MOTIFS = {"GT-AG", "GC-AG", "AT-AC"}
 
@@ -81,21 +87,21 @@ class AnnoOddities:
         self.force = self.args.force
         # check if input and output files/directories exist
         if not os.path.isfile(self.genome):
-            logging.error(f"Reference genome file {self.genome} not found")
+            logger.error(f"Reference genome file {self.genome} not found")
             sys.exit(1)
         if not os.path.isfile(self.gff):
-            logging.error(f"GFF3 file {self.gff} not found")
+            logger.error(f"GFF3 file {self.gff} not found")
             sys.exit(1)
 
         # use canonical intron motifs from args if provided, else use default
         global CANONICAL_INTRON_MOTIFS
         if self.args.canonical_intron_motifs:
             CANONICAL_INTRON_MOTIFS = set(self.args.canonical_intron_motifs.split(","))
-            logging.info(
+            logger.info(
                 f"Using user-defined canonical intron motifs: {CANONICAL_INTRON_MOTIFS}"
             )
         else:
-            logging.info(
+            logger.info(
                 f"Using default canonical intron motifs: {CANONICAL_INTRON_MOTIFS}"
             )
 
@@ -288,7 +294,7 @@ class AnnoOddities:
         try:
             int(coords_str.split(",")[0].split("-")[0])
         except ValueError:
-            logging.debug(
+            logger.debug(
                 f"Warning: Unable to parse {coord_type} coordinates for transcript {tid}. The coordinates are: '{coords_str}'"
             )
             return []
@@ -861,7 +867,7 @@ class AnnoOddities:
                                 combined_metrics.get("gene_id", "NA")
                             ].append(metric_name)
                     except Exception as e:
-                        logging.error(f"Error evaluating oddity '{oddity}': {e}")
+                        logger.error(f"Error evaluating oddity '{oddity}': {e}")
                 # if matched_oddities_tsv is empty, set to None
                 if not matched_oddities_tsv:
                     matched_oddities_tsv.append("None")
@@ -1023,12 +1029,12 @@ class AnnoOddities:
 
     def run_agat_standardise_gff(self):
         """Run AGAT to standardise GFF3 file"""
-        logging.info("Standardising GFF3 file using AGAT")
+        logger.info("Standardising GFF3 file using AGAT")
         output_gff = self.args.output_prefix + ".agat_standardised.gff"
         output_log = output_gff.replace(".gff", ".log")
 
         if os.path.isfile(output_gff) and not self.force:
-            logging.info(
+            logger.info(
                 f"Skipping agat standardisation, '{output_gff}' already exists. Use --force to rerun."
             )
             self.sanitised_gff = output_gff
@@ -1040,7 +1046,7 @@ class AnnoOddities:
 
     def run_agat_sp_statistics(self):
         """Run AGAT to generate statistics from GFF3 file"""
-        logging.info("Generating GFF3 statistics using AGAT")
+        logger.info("Generating GFF3 statistics using AGAT")
         output_stats = self.sanitised_gff.replace(
             ".agat_standardised.gff", ".agat_sp_statistics.txt"
         )
@@ -1056,7 +1062,7 @@ class AnnoOddities:
             and os.path.isfile(output_stats_toml)
             and not self.force
         ):
-            logging.info(
+            logger.info(
                 f"Skipping agat statistics, '{output_stats}', '{output_stats_yaml}', '{output_stats_json}' and '{output_stats_toml}' already exist. Use --force to rerun."
             )
             self.agat_statistics_yaml = output_stats_yaml
@@ -1088,14 +1094,14 @@ class AnnoOddities:
 
     def run_gffread_table(self):
         """Run gffread to generate table from GFF3 file"""
-        logging.info("Generating GFF3 table using gffread")
+        logger.info("Generating GFF3 table using gffread")
         output_table = self.sanitised_gff.replace(
             ".agat_standardised.gff", ".gffread_table.tbl"
         )
         output_log = output_table.replace(".tbl", ".log")
 
         if os.path.isfile(output_table) and not self.force:
-            logging.info(
+            logger.info(
                 f"Skipping gffread table generation, '{output_table}' already exists. Use --force to rerun."
             )
             self.gffread_table = output_table
@@ -1114,7 +1120,7 @@ class AnnoOddities:
 
     def run_mikado_tab_stats(self):
         """Run Mikado tab-stats to generate metrics from GFF3 file"""
-        logging.info("Generating Mikado tab-stats from GFF3 file")
+        logger.info("Generating Mikado tab-stats from GFF3 file")
         output_tab_stats = self.sanitised_gff.replace(
             ".agat_standardised.gff", ".mikado_tab_stats.tsv"
         )
@@ -1138,7 +1144,7 @@ class AnnoOddities:
             and os.path.isfile(output_stats_toml)
             and not self.force
         ):
-            logging.info(
+            logger.info(
                 f"Skipping Mikado tab-stats generation, '{output_tab_stats}', '{output_stats}', '{output_basic_stats}', '{output_stats_yaml}', '{output_stats_json}' and '{output_stats_toml}' already exist. Use --force to rerun."
             )
             self.mikado_tab_stats = output_tab_stats
@@ -1165,12 +1171,12 @@ class AnnoOddities:
         self.mikado_stats_json = output_stats_json
         self.mikado_stats_toml = output_stats_toml
         self.mikado_basic_stats = output_basic_stats
-        logging.info(f"Mikado tab-stats written to {self.mikado_tab_stats}")
-        logging.info(f"Mikado stats written to {self.mikado_stats}")
-        logging.info(f"Mikado stats YAML written to {self.mikado_stats_yaml}")
-        logging.info(f"Mikado stats JSON written to {self.mikado_stats_json}")
-        logging.info(f"Mikado stats TOML written to {self.mikado_stats_toml}")
-        logging.info(f"Mikado summary stats written to {self.mikado_basic_stats}")
+        logger.info(f"Mikado tab-stats written to {self.mikado_tab_stats}")
+        logger.info(f"Mikado stats written to {self.mikado_stats}")
+        logger.info(f"Mikado stats YAML written to {self.mikado_stats_yaml}")
+        logger.info(f"Mikado stats JSON written to {self.mikado_stats_json}")
+        logger.info(f"Mikado stats TOML written to {self.mikado_stats_toml}")
+        logger.info(f"Mikado summary stats written to {self.mikado_basic_stats}")
 
     def update_oddities(self):
         """Update oddities with user-specified thresholds"""
@@ -1214,23 +1220,23 @@ class AnnoOddities:
             else:
                 METRIC_ODDITIES_UPDATED.append(oddity)
 
-        logging.debug(
+        logger.debug(
             f"Updated METRIC_ODDITIES with user thresholds: {METRIC_ODDITIES_UPDATED}"
         )
 
         # print the updated oddities for user
-        logging.info("Using the following oddity conditions:")
+        logger.info("Using the following oddity conditions:")
         for oddity in METRIC_ODDITIES_UPDATED:
-            logging.info(f" {oddity}")
+            logger.info(f" {oddity}")
 
         return METRIC_ODDITIES_UPDATED
 
     def process_cmd(self, cmd):
         # capture exit code and log error if non-zero
-        logging.info(f"Running command: {cmd}")
+        logger.info(f"Running command: {cmd}")
         exit_code = os.system(cmd)
         if exit_code != 0:
-            logging.error(f"Command failed with exit code {exit_code}")
+            logger.error(f"Command failed with exit code {exit_code}")
             sys.exit(exit_code)
 
     def combine_statistics_outputs(self):
@@ -1270,9 +1276,9 @@ class AnnoOddities:
         with open(combined_toml, "w") as combined_toml_file:
             toml.dump(combined_data, combined_toml_file)
 
-        logging.info(f"Combined statistics YAML written to '{combined_yaml}'")
-        logging.info(f"Combined statistics JSON written to '{combined_json}'")
-        logging.info(f"Combined statistics TOML written to '{combined_toml}'")
+        logger.info(f"Combined statistics YAML written to '{combined_yaml}'")
+        logger.info(f"Combined statistics JSON written to '{combined_json}'")
+        logger.info(f"Combined statistics TOML written to '{combined_toml}'")
 
     def _get_gff_attribute(self, attrib, field):
         """Get Note field from GFF3 attributes"""
@@ -1368,10 +1374,10 @@ class AnnoOddities:
                 if not skip_main_id:
                     out_gff_fh.write(line)
 
-        logging.info(
+        logger.info(
             f"Extracted transcripts with oddities written to '{output_oddity_gff}'"
         )
-        logging.info(f"Individual oddity GFF3 files written to '{oddity_dir}' folder")
+        logger.info(f"Individual oddity GFF3 files written to '{oddity_dir}' folder")
 
     def write_oddity_to_gff(self, oddity_dir, line, oddity):
         # metric_name = AnnoOddities._clean_metric_name(oddity)
@@ -1390,11 +1396,11 @@ class AnnoOddities:
                 metric_name = oddity.replace("{", "").replace("}", "")
                 f.write(f"{metric_name}\t{count}\n")
 
-        logging.info(f"Oddities summary table written to '{self.oddity_summary}'")
+        logger.info(f"Oddities summary table written to '{self.oddity_summary}'")
 
     def run(self):
-        logging.info("Finding annotation oddities")
-        logging.info(f"Command: {executed_command}")
+        logger.info("Finding annotation oddities")
+        logger.info(f"Command: {executed_command}")
 
         # run agat to standardise gff3
         self.run_agat_standardise_gff()
@@ -1408,25 +1414,25 @@ class AnnoOddities:
         # run mikado tab-stats
         self.run_mikado_tab_stats()
 
-        logging.info("Update oddities as per user thresholds")
+        logger.info("Update oddities as per user thresholds")
         METRIC_ODDITIES_UPDATED = self.update_oddities()
 
         # parse mikado tab-stats and gffread table
-        logging.info("Parsing Mikado tab-stats file")
+        logger.info("Parsing Mikado tab-stats file")
         mikado_data = self.parse_mikado_tab_stats(self.mikado_tab_stats)
 
         # load genome fasta
-        logging.info("Loading genome FASTA file, this may take a while...")
+        logger.info("Loading genome FASTA file, this may take a while...")
         self.genome_db = Fasta(self.args.genome_fasta)
 
-        logging.info("Parsing gffread table file")
+        logger.info("Parsing gffread table file")
         gffread_data = self.parse_gffread_table(self.genome_db, self.gffread_table)
 
         # combine yaml, json and toml outputs from agat and mikado into combined yaml, json and toml
-        logging.info("Combining AGAT and Mikado statistics")
+        logger.info("Combining AGAT and Mikado statistics")
         self.combine_statistics_outputs()
 
-        logging.info("Finding annotation oddities")
+        logger.info("Finding annotation oddities")
         # find oddities
         oddity_counts, self.oddity_tid_info, self.oddity_gid_info = (
             self.calculate_oddities(
@@ -1438,10 +1444,10 @@ class AnnoOddities:
         )
 
         # use oddities info to extract from gff3 if needed
-        logging.info("Separating transcripts with oddities, this may take a while...")
+        logger.info("Separating transcripts with oddities, this may take a while...")
         self.extract_oddity_transcripts()
 
-        logging.info(f"All oddities TSV table written to '{self.all_stats_tsv}'")
+        logger.info(f"All oddities TSV table written to '{self.all_stats_tsv}'")
         # write oddities table
         self.write_oddities_table(oddity_counts)
 
@@ -1563,14 +1569,9 @@ def main():
     # TODO: will use logging.getLevelNamesMapping() later if needed (Added in version 3.11)
     # log_level = logging.getLevelNamesMapping().get(args.verbosity.upper(), logging.INFO)
     log_level = logging.getLevelName(args.verbosity.upper())
-    logging.basicConfig(
-        format="%(asctime)s | %(levelname)-8s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=log_level,
-    )
-
+    logger.setLevel(log_level)
     # check if gffread, gt, mikado are available
-    logging.info("Checking for required tools in PATH")
+    logger.info("Checking for required tools in PATH")
     for tool in [
         "agat",
         "gffread",
@@ -1579,12 +1580,10 @@ def main():
         "agat_sp_statistics.pl",
     ]:
         if not shutil.which(tool):
-            logging.error(f"Required tool '{tool}' not found in PATH")
+            logger.error(f"Required tool '{tool}' not found in PATH")
             sys.exit(1)
         else:
-            logging.info(
-                f"Found required tool in PATH: '{tool}' - {shutil.which(tool)}"
-            )
+            logger.info(f"Found required tool in PATH: '{tool}' - {shutil.which(tool)}")
 
     AnnoOddities(args).run()
 
