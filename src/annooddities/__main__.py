@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Script to find annotation oddities from GFF3 and genome FASTA files
 """
 
-import os
-import sys
 import argparse
 import csv
-from collections import Counter, defaultdict
-import logging
-import shutil
-import re
-from pyfaidx import Fasta
 import json
-import yaml
+import logging
+import os
+import re
+import shutil
+import sys
+from collections import Counter, defaultdict
+
 import toml
+import yaml
+from pyfaidx import Fasta
 
 script = os.path.basename(sys.argv[0])
 executed_command = " ".join(sys.argv)
@@ -571,12 +571,10 @@ class AnnoOddities:
                             unknown_negative_canonical_count += count
                             unknown_negative_junction_found = True
 
-                        if all(
-                            [
-                                unknown_positive_junction_found,
-                                unknown_negative_junction_found,
-                            ]
-                        ):
+                        if all([
+                            unknown_positive_junction_found,
+                            unknown_negative_junction_found,
+                        ]):
                             suspicious_count += count
                             unknown_predicted_strand = "?"
                         else:
@@ -874,153 +872,135 @@ class AnnoOddities:
 
                 # Write combined metrics to file
                 stats_out.write(
-                    "\t".join(
-                        [
-                            tid,
-                            # gene id
-                            combined_metrics.get("gene_id", "NA"),
-                            # chromosome
-                            combined_metrics.get("chrom", "NA"),
-                            # start
-                            str(combined_metrics.get("start", "NA")),
-                            # end
-                            str(combined_metrics.get("end", "NA")),
-                            # region
-                            combined_metrics.get("region", "NA"),
-                            # strand
-                            str(combined_metrics.get("strand", "NA")),
-                            # exon number
-                            str(combined_metrics.get("exon_num", "NA")),
-                            # exon coordinates
-                            str(combined_metrics.get("exons", "NA")),
-                            # exon coordinates lengths
-                            str(combined_metrics.get("exon_lengths", "NA")),
-                            # max exon coordinate length
-                            str(combined_metrics.get("max_exon_length", "NA")),
-                            # min exon coordinate length
-                            str(combined_metrics.get("min_exon_length", "NA")),
-                            # total exon length
-                            str(combined_metrics.get("total_exon_length", "NA")),
-                            # cds exon number
-                            str(combined_metrics.get("cds_exon_num", "NA")),
-                            # cds coordinates
-                            str(combined_metrics.get("cds_exons", "NA")),
-                            # cds coordinates lengths
-                            str(combined_metrics.get("cds_exon_lengths", "NA")),
-                            # max cds coordinate length
-                            str(combined_metrics.get("max_cds_length", "NA")),
-                            # min cds coordinate length
-                            str(combined_metrics.get("min_cds_length", "NA")),
-                            # total cds length
-                            str(combined_metrics.get("total_cds_length", "NA")),
-                            # cds/cdna ratio
-                            str(combined_metrics.get("cds_cdna_ratio", "NA")),
-                            # intron number
-                            str(combined_metrics.get("intron_num", "NA")),
-                            # introns
-                            str(combined_metrics.get("introns", "NA")),
-                            # intron_lengths
-                            str(combined_metrics.get("intron_lengths", "NA")),
-                            # max_intron_length
-                            str(combined_metrics.get("max_intron_length", "NA")),
-                            # min_intron_length
-                            str(combined_metrics.get("min_intron_length", "NA")),
-                            # total intron length
-                            str(combined_metrics.get("total_intron_length", "NA")),
-                            # five_utr_num
-                            str(combined_metrics.get("five_utr_num", "NA")),
-                            # five_utr_length
-                            str(combined_metrics.get("five_utr_length", "NA")),
-                            # three_utr_num
-                            str(combined_metrics.get("three_utr_num", "NA")),
-                            # three_utr_length
-                            str(combined_metrics.get("three_utr_length", "NA")),
-                            # has_start_codon
-                            str(combined_metrics.get("has_start_codon", "NA")),
-                            # has_stop_codon
-                            str(combined_metrics.get("has_stop_codon", "NA")),
-                            # is_complete
-                            str(combined_metrics.get("is_complete", "NA")),
-                            # is_fragment
-                            str(combined_metrics.get("is_fragment", "NA")),
-                            # has_inframe_stop
-                            str(combined_metrics.get("has_inframe_stop", "NA")),
-                            # known_strand_junctions
-                            # known_strand_junctions_dict
-                            str(
-                                {
-                                    k: dict(v)
-                                    for k, v in combined_metrics.get(
-                                        "known_strand_junctions", {}
-                                    ).items()
-                                }
+                    "\t".join([
+                        tid,
+                        # gene id
+                        combined_metrics.get("gene_id", "NA"),
+                        # chromosome
+                        combined_metrics.get("chrom", "NA"),
+                        # start
+                        str(combined_metrics.get("start", "NA")),
+                        # end
+                        str(combined_metrics.get("end", "NA")),
+                        # region
+                        combined_metrics.get("region", "NA"),
+                        # strand
+                        str(combined_metrics.get("strand", "NA")),
+                        # exon number
+                        str(combined_metrics.get("exon_num", "NA")),
+                        # exon coordinates
+                        str(combined_metrics.get("exons", "NA")),
+                        # exon coordinates lengths
+                        str(combined_metrics.get("exon_lengths", "NA")),
+                        # max exon coordinate length
+                        str(combined_metrics.get("max_exon_length", "NA")),
+                        # min exon coordinate length
+                        str(combined_metrics.get("min_exon_length", "NA")),
+                        # total exon length
+                        str(combined_metrics.get("total_exon_length", "NA")),
+                        # cds exon number
+                        str(combined_metrics.get("cds_exon_num", "NA")),
+                        # cds coordinates
+                        str(combined_metrics.get("cds_exons", "NA")),
+                        # cds coordinates lengths
+                        str(combined_metrics.get("cds_exon_lengths", "NA")),
+                        # max cds coordinate length
+                        str(combined_metrics.get("max_cds_length", "NA")),
+                        # min cds coordinate length
+                        str(combined_metrics.get("min_cds_length", "NA")),
+                        # total cds length
+                        str(combined_metrics.get("total_cds_length", "NA")),
+                        # cds/cdna ratio
+                        str(combined_metrics.get("cds_cdna_ratio", "NA")),
+                        # intron number
+                        str(combined_metrics.get("intron_num", "NA")),
+                        # introns
+                        str(combined_metrics.get("introns", "NA")),
+                        # intron_lengths
+                        str(combined_metrics.get("intron_lengths", "NA")),
+                        # max_intron_length
+                        str(combined_metrics.get("max_intron_length", "NA")),
+                        # min_intron_length
+                        str(combined_metrics.get("min_intron_length", "NA")),
+                        # total intron length
+                        str(combined_metrics.get("total_intron_length", "NA")),
+                        # five_utr_num
+                        str(combined_metrics.get("five_utr_num", "NA")),
+                        # five_utr_length
+                        str(combined_metrics.get("five_utr_length", "NA")),
+                        # three_utr_num
+                        str(combined_metrics.get("three_utr_num", "NA")),
+                        # three_utr_length
+                        str(combined_metrics.get("three_utr_length", "NA")),
+                        # has_start_codon
+                        str(combined_metrics.get("has_start_codon", "NA")),
+                        # has_stop_codon
+                        str(combined_metrics.get("has_stop_codon", "NA")),
+                        # is_complete
+                        str(combined_metrics.get("is_complete", "NA")),
+                        # is_fragment
+                        str(combined_metrics.get("is_fragment", "NA")),
+                        # has_inframe_stop
+                        str(combined_metrics.get("has_inframe_stop", "NA")),
+                        # known_strand_junctions
+                        # known_strand_junctions_dict
+                        str({
+                            k: dict(v)
+                            for k, v in combined_metrics.get(
+                                "known_strand_junctions", {}
+                            ).items()
+                        }),
+                        # known_strand_junctions_str
+                        AnnoOddities._join_splice_site_dict(
+                            combined_metrics.get("known_strand_junctions", {})
+                        ),
+                        # unknown_strand_junctions
+                        # unknown_strand_junctions_dict
+                        str({
+                            k: dict(v)
+                            for k, v in combined_metrics.get(
+                                "unknown_strand_junctions", {}
+                            ).items()
+                        }),
+                        # unknown_strand_junctions_str
+                        AnnoOddities._join_splice_site_dict(
+                            combined_metrics.get("unknown_strand_junctions", {})
+                        ),
+                        # canonical_intron_count
+                        str(combined_metrics.get("canonical_intron_count", "NA")),
+                        # non_canonical_intron_count
+                        str(combined_metrics.get("non_canonical_intron_count", "NA")),
+                        # suspicious_intron_count
+                        str(
+                            combined_metrics.get("suspicious_intron_count", "NA"),
+                        ),
+                        # unknown_canonical_intron_count
+                        str(
+                            combined_metrics.get("unknown_canonical_intron_count", "NA")
+                        ),
+                        # unknown_non_canonical_intron_count
+                        str(
+                            combined_metrics.get(
+                                "unknown_non_canonical_intron_count", "NA"
                             ),
-                            # known_strand_junctions_str
-                            AnnoOddities._join_splice_site_dict(
-                                combined_metrics.get("known_strand_junctions", {})
+                        ),
+                        # unknown_suspicious_intron_count
+                        str(
+                            combined_metrics.get(
+                                "unknown_suspicious_intron_count", "NA"
                             ),
-                            # unknown_strand_junctions
-                            # unknown_strand_junctions_dict
-                            str(
-                                {
-                                    k: dict(v)
-                                    for k, v in combined_metrics.get(
-                                        "unknown_strand_junctions", {}
-                                    ).items()
-                                }
-                            ),
-                            # unknown_strand_junctions_str
-                            AnnoOddities._join_splice_site_dict(
-                                combined_metrics.get("unknown_strand_junctions", {})
-                            ),
-                            # canonical_intron_count
-                            str(combined_metrics.get("canonical_intron_count", "NA")),
-                            # non_canonical_intron_count
-                            str(
-                                combined_metrics.get("non_canonical_intron_count", "NA")
-                            ),
-                            # suspicious_intron_count
-                            str(
-                                combined_metrics.get("suspicious_intron_count", "NA"),
-                            ),
-                            # unknown_canonical_intron_count
-                            str(
-                                combined_metrics.get(
-                                    "unknown_canonical_intron_count", "NA"
-                                )
-                            ),
-                            # unknown_non_canonical_intron_count
-                            str(
-                                combined_metrics.get(
-                                    "unknown_non_canonical_intron_count", "NA"
-                                ),
-                            ),
-                            # unknown_suspicious_intron_count
-                            str(
-                                combined_metrics.get(
-                                    "unknown_suspicious_intron_count", "NA"
-                                ),
-                            ),
-                            # unknown_predicted_strand
-                            str(combined_metrics.get("unknown_predicted_strand", "NA")),
-                            # canonical_intron_proportion
-                            str(
-                                combined_metrics.get(
-                                    "canonical_intron_proportion", "NA"
-                                )
-                            ),
-                            # only_non_canonical_splicing
-                            str(
-                                combined_metrics.get(
-                                    "only_non_canonical_splicing", "NA"
-                                )
-                            ),
-                            # suspicious_splicing
-                            str(combined_metrics.get("suspicious_splicing", "NA")),
-                            # matched_oddities
-                            str(combined_metrics.get("matched_oddities", "NA")),
-                        ]
-                    )
+                        ),
+                        # unknown_predicted_strand
+                        str(combined_metrics.get("unknown_predicted_strand", "NA")),
+                        # canonical_intron_proportion
+                        str(combined_metrics.get("canonical_intron_proportion", "NA")),
+                        # only_non_canonical_splicing
+                        str(combined_metrics.get("only_non_canonical_splicing", "NA")),
+                        # suspicious_splicing
+                        str(combined_metrics.get("suspicious_splicing", "NA")),
+                        # matched_oddities
+                        str(combined_metrics.get("matched_oddities", "NA")),
+                    ])
                 )
                 stats_out.write("\n")
 
@@ -1029,7 +1009,8 @@ class AnnoOddities:
     @staticmethod
     def _clean_metric_name(oddity):
         return (
-            oddity.replace("{", "")
+            oddity
+            .replace("{", "")
             .replace("}", "")
             .replace("==", "eq")
             .replace(">", "gt")
