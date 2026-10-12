@@ -82,6 +82,58 @@ MIKADO_STATS_ORDER = [
 class AnnoOddities:
     def __init__(self, args):
         self.args = args
+        self.headers = [
+            "transcript_id",
+            "gene_id",
+            "chromosome",
+            "start",
+            "end",
+            "region",
+            "strand",
+            "exon_num",
+            "exons",
+            "exon_lengths",
+            "max_exon_length",
+            "min_exon_length",
+            "total_exon_length",
+            "cds_exon_num",
+            "cds_exons",
+            "cds_exon_lengths",
+            "max_cds_length",
+            "min_cds_length",
+            "total_cds_length",
+            "cds_cdna_ratio",
+            "intron_num",
+            "introns",
+            "intron_lengths",
+            "max_intron_length",
+            "min_intron_length",
+            "total_intron_length",
+            "five_utr_num",
+            "five_utr_length",
+            "three_utr_num",
+            "three_utr_length",
+            "has_start_codon",
+            "has_stop_codon",
+            "is_complete",
+            "is_fragment",
+            "has_inframe_stop",
+            "known_strand_junctions_dict",
+            "known_strand_junctions_str",
+            "unknown_strand_junctions_dict",
+            "unknown_strand_junctions_str",
+            "canonical_intron_count",
+            "non_canonical_intron_count",
+            "suspicious_intron_count",
+            "unknown_canonical_intron_count",
+            "unknown_non_canonical_intron_count",
+            "unknown_suspicious_intron_count",
+            "unknown_predicted_strand",
+            "canonical_intron_proportion",
+            "only_non_canonical_splicing",
+            "suspicious_splicing",
+            "matched_oddities",
+        ]
         self.genome = os.path.abspath(self.args.genome_fasta)
         self.gff = os.path.abspath(self.args.gff3_file)
         self.force = self.args.force
@@ -763,68 +815,29 @@ class AnnoOddities:
             else "NA"
         )
 
-    headers = [
-        "transcript_id",
-        "gene_id",
-        "chromosome",
-        "start",
-        "end",
-        "region",
-        "strand",
-        "exon_num",
-        "exons",
-        "exon_lengths",
-        "max_exon_length",
-        "min_exon_length",
-        "total_exon_length",
-        "cds_exon_num",
-        "cds_exons",
-        "cds_exon_lengths",
-        "max_cds_length",
-        "min_cds_length",
-        "total_cds_length",
-        "cds_cdna_ratio",
-        "intron_num",
-        "introns",
-        "intron_lengths",
-        "max_intron_length",
-        "min_intron_length",
-        "total_intron_length",
-        "five_utr_num",
-        "five_utr_length",
-        "three_utr_num",
-        "three_utr_length",
-        "has_start_codon",
-        "has_stop_codon",
-        "is_complete",
-        "is_fragment",
-        "has_inframe_stop",
-        "known_strand_junctions_dict",
-        "known_strand_junctions_str",
-        "unknown_strand_junctions_dict",
-        "unknown_strand_junctions_str",
-        "canonical_intron_count",
-        "non_canonical_intron_count",
-        "suspicious_intron_count",
-        "unknown_canonical_intron_count",
-        "unknown_non_canonical_intron_count",
-        "unknown_suspicious_intron_count",
-        "unknown_predicted_strand",
-        "canonical_intron_proportion",
-        "only_non_canonical_splicing",
-        "suspicious_splicing",
-        "matched_oddities",
-    ]
-
     @staticmethod
-    def calculate_oddities(mikado_data, gffread_data, oddities, all_stats_tsv):
+    def _clean_metric_name(oddity):
+        return (
+            oddity
+            .replace("{", "")
+            .replace("}", "")
+            .replace("==", "eq")
+            .replace(">", "gt")
+            .replace("<=", "lte")
+            .replace("<", "lt")
+            .replace(">=", "gte")
+            .replace("!=", "neq")
+            .replace(" ", "_")
+        )
+
+    def calculate_oddities(self, mikado_data, gffread_data, oddities, all_stats_tsv):
         """Calculate oddities for all transcripts"""
-        oddity_counts = Counter({oddity: 0 for oddity in oddities})
+        oddity_counts = Counter(dict.fromkeys(oddities, 0))
         oddity_tid_info = defaultdict(dict)
         oddity_gid_info = defaultdict(list)
 
         with open(all_stats_tsv, "w") as stats_out:
-            stats_out.write("\t".join(AnnoOddities.headers) + "\n")
+            stats_out.write("\t".join(self.headers) + "\n")
             # using mikado as the base, as it should have all transcripts we care about
             for tid, mikado_metrics in mikado_data.items():
                 gffread_metrics = gffread_data.get(tid, {})
@@ -866,7 +879,13 @@ class AnnoOddities:
                             oddity_gid_info[
                                 combined_metrics.get("gene_id", "NA")
                             ].append(metric_name)
-                    except Exception as e:
+                    except (
+                        KeyError,
+                        SyntaxError,
+                        NameError,
+                        TypeError,
+                        ArithmeticError,
+                    ) as e:
                         logger.error(f"Error evaluating oddity '{oddity}': {e}")
                 # if matched_oddities_tsv is empty, set to None
                 if not matched_oddities_tsv:
@@ -1011,21 +1030,6 @@ class AnnoOddities:
                 stats_out.write("\n")
 
         return oddity_counts, oddity_tid_info, oddity_gid_info
-
-    @staticmethod
-    def _clean_metric_name(oddity):
-        return (
-            oddity
-            .replace("{", "")
-            .replace("}", "")
-            .replace("==", "eq")
-            .replace(">", "gt")
-            .replace("<=", "lte")
-            .replace("<", "lt")
-            .replace(">=", "gte")
-            .replace("!=", "neq")
-            .replace(" ", "_")
-        )
 
     def run_agat_standardise_gff(self):
         """Run AGAT to standardise GFF3 file"""
