@@ -1,25 +1,31 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Script to find annotation oddities from GFF3 and genome FASTA files
 """
 
-import os
-import sys
 import argparse
 import csv
-from collections import Counter, defaultdict
-import logging
-import shutil
-import re
-from pyfaidx import Fasta
 import json
-import yaml
+import logging
+import os
+import re
+import shutil
+import sys
+from collections import Counter, defaultdict
+
 import toml
+import yaml
+from pyfaidx import Fasta
 
 script = os.path.basename(sys.argv[0])
 executed_command = " ".join(sys.argv)
 
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
+logger = logging.getLogger("annooddities")
 
 CANONICAL_INTRON_MOTIFS = {"GT-AG", "GC-AG", "AT-AC"}
 
@@ -76,26 +82,78 @@ MIKADO_STATS_ORDER = [
 class AnnoOddities:
     def __init__(self, args):
         self.args = args
+        self.headers = [
+            "transcript_id",
+            "gene_id",
+            "chromosome",
+            "start",
+            "end",
+            "region",
+            "strand",
+            "exon_num",
+            "exons",
+            "exon_lengths",
+            "max_exon_length",
+            "min_exon_length",
+            "total_exon_length",
+            "cds_exon_num",
+            "cds_exons",
+            "cds_exon_lengths",
+            "max_cds_length",
+            "min_cds_length",
+            "total_cds_length",
+            "cds_cdna_ratio",
+            "intron_num",
+            "introns",
+            "intron_lengths",
+            "max_intron_length",
+            "min_intron_length",
+            "total_intron_length",
+            "five_utr_num",
+            "five_utr_length",
+            "three_utr_num",
+            "three_utr_length",
+            "has_start_codon",
+            "has_stop_codon",
+            "is_complete",
+            "is_fragment",
+            "has_inframe_stop",
+            "known_strand_junctions_dict",
+            "known_strand_junctions_str",
+            "unknown_strand_junctions_dict",
+            "unknown_strand_junctions_str",
+            "canonical_intron_count",
+            "non_canonical_intron_count",
+            "suspicious_intron_count",
+            "unknown_canonical_intron_count",
+            "unknown_non_canonical_intron_count",
+            "unknown_suspicious_intron_count",
+            "unknown_predicted_strand",
+            "canonical_intron_proportion",
+            "only_non_canonical_splicing",
+            "suspicious_splicing",
+            "matched_oddities",
+        ]
         self.genome = os.path.abspath(self.args.genome_fasta)
         self.gff = os.path.abspath(self.args.gff3_file)
         self.force = self.args.force
         # check if input and output files/directories exist
         if not os.path.isfile(self.genome):
-            logging.error(f"Reference genome file {self.genome} not found")
+            logger.error(f"Reference genome file {self.genome} not found")
             sys.exit(1)
         if not os.path.isfile(self.gff):
-            logging.error(f"GFF3 file {self.gff} not found")
+            logger.error(f"GFF3 file {self.gff} not found")
             sys.exit(1)
 
         # use canonical intron motifs from args if provided, else use default
         global CANONICAL_INTRON_MOTIFS
         if self.args.canonical_intron_motifs:
             CANONICAL_INTRON_MOTIFS = set(self.args.canonical_intron_motifs.split(","))
-            logging.info(
+            logger.info(
                 f"Using user-defined canonical intron motifs: {CANONICAL_INTRON_MOTIFS}"
             )
         else:
-            logging.info(
+            logger.info(
                 f"Using default canonical intron motifs: {CANONICAL_INTRON_MOTIFS}"
             )
 
@@ -110,19 +168,19 @@ class AnnoOddities:
         self.gff_name = os.path.basename(self.gff)
 
         # genome dna index
-        self.genome_db = str()
+        self.genome_db = ""
 
-        self.sanitised_gff = str()
-        self.agat_statistics_yaml = str()
-        self.agat_statistics_json = str()
-        self.agat_statistics_toml = str()
-        self.gffread_table = str()
-        self.mikado_tab_stats = str()
-        self.mikado_stats = str()
-        self.mikado_stats_yaml = str()
-        self.mikado_stats_json = str()
-        self.mikado_stats_toml = str()
-        self.mikado_basic_stats = str()
+        self.sanitised_gff = ""
+        self.agat_statistics_yaml = ""
+        self.agat_statistics_json = ""
+        self.agat_statistics_toml = ""
+        self.gffread_table = ""
+        self.mikado_tab_stats = ""
+        self.mikado_stats = ""
+        self.mikado_stats_yaml = ""
+        self.mikado_stats_json = ""
+        self.mikado_stats_toml = ""
+        self.mikado_basic_stats = ""
 
         # for extraction of oddities from gff3, store tid, gid and oddities matched
         self.oddity_tid_info = defaultdict(dict)
@@ -288,7 +346,7 @@ class AnnoOddities:
         try:
             int(coords_str.split(",")[0].split("-")[0])
         except ValueError:
-            logging.debug(
+            logger.debug(
                 f"Warning: Unable to parse {coord_type} coordinates for transcript {tid}. The coordinates are: '{coords_str}'"
             )
             return []
@@ -559,30 +617,28 @@ class AnnoOddities:
                     # logic: if for a transcript with 10 introns, 4 on the positive strand and 6 on the negative strand, and all 10 junctions are canonical, then canonical intron count is based on the higher count of canonical junctions on either strand, i.e., 6 in this case or 0.6 proportion and suspicious. If for a transcript with 10 introns, 4 on the positive strand and 6 on the negative strand, and only 2 junctions are canonical (1 on each strand), then canonical intron count is 1 (higher of the two), proportion is 0.1 and suspicious.
                     elif junction_type == "unknown":
                         if (
-                            strand_sign in [":und:.+:"]
+                            strand_sign == ":und:.+:"
                             and junction in CANONICAL_INTRON_MOTIFS
                         ):
                             unknown_positive_canonical_count += count
                             unknown_positive_junction_found = True
                         if (
-                            strand_sign in [":und:.-:"]
+                            strand_sign == ":und:.-:"
                             and junction in CANONICAL_INTRON_MOTIFS
                         ):
                             unknown_negative_canonical_count += count
                             unknown_negative_junction_found = True
 
-                        if all(
-                            [
-                                unknown_positive_junction_found,
-                                unknown_negative_junction_found,
-                            ]
-                        ):
+                        if all([
+                            unknown_positive_junction_found,
+                            unknown_negative_junction_found,
+                        ]):
                             suspicious_count += count
                             unknown_predicted_strand = "?"
                         else:
-                            if strand_sign in [":und:.+:"]:
+                            if strand_sign == ":und:.+:":
                                 unknown_predicted_strand = "+"
-                            elif strand_sign in [":und:.-:"]:
+                            elif strand_sign == ":und:.-:":
                                 unknown_predicted_strand = "-"
 
                         if (
@@ -759,68 +815,29 @@ class AnnoOddities:
             else "NA"
         )
 
-    headers = [
-        "transcript_id",
-        "gene_id",
-        "chromosome",
-        "start",
-        "end",
-        "region",
-        "strand",
-        "exon_num",
-        "exons",
-        "exon_lengths",
-        "max_exon_length",
-        "min_exon_length",
-        "total_exon_length",
-        "cds_exon_num",
-        "cds_exons",
-        "cds_exon_lengths",
-        "max_cds_length",
-        "min_cds_length",
-        "total_cds_length",
-        "cds_cdna_ratio",
-        "intron_num",
-        "introns",
-        "intron_lengths",
-        "max_intron_length",
-        "min_intron_length",
-        "total_intron_length",
-        "five_utr_num",
-        "five_utr_length",
-        "three_utr_num",
-        "three_utr_length",
-        "has_start_codon",
-        "has_stop_codon",
-        "is_complete",
-        "is_fragment",
-        "has_inframe_stop",
-        "known_strand_junctions_dict",
-        "known_strand_junctions_str",
-        "unknown_strand_junctions_dict",
-        "unknown_strand_junctions_str",
-        "canonical_intron_count",
-        "non_canonical_intron_count",
-        "suspicious_intron_count",
-        "unknown_canonical_intron_count",
-        "unknown_non_canonical_intron_count",
-        "unknown_suspicious_intron_count",
-        "unknown_predicted_strand",
-        "canonical_intron_proportion",
-        "only_non_canonical_splicing",
-        "suspicious_splicing",
-        "matched_oddities",
-    ]
-
     @staticmethod
-    def calculate_oddities(mikado_data, gffread_data, oddities, all_stats_tsv):
+    def _clean_metric_name(oddity):
+        return (
+            oddity
+            .replace("{", "")
+            .replace("}", "")
+            .replace("==", "eq")
+            .replace(">", "gt")
+            .replace("<=", "lte")
+            .replace("<", "lt")
+            .replace(">=", "gte")
+            .replace("!=", "neq")
+            .replace(" ", "_")
+        )
+
+    def calculate_oddities(self, mikado_data, gffread_data, oddities, all_stats_tsv):
         """Calculate oddities for all transcripts"""
-        oddity_counts = Counter({oddity: 0 for oddity in oddities})
+        oddity_counts = Counter(dict.fromkeys(oddities, 0))
         oddity_tid_info = defaultdict(dict)
         oddity_gid_info = defaultdict(list)
 
         with open(all_stats_tsv, "w") as stats_out:
-            stats_out.write("\t".join(AnnoOddities.headers) + "\n")
+            stats_out.write("\t".join(self.headers) + "\n")
             # using mikado as the base, as it should have all transcripts we care about
             for tid, mikado_metrics in mikado_data.items():
                 gffread_metrics = gffread_data.get(tid, {})
@@ -862,8 +879,14 @@ class AnnoOddities:
                             oddity_gid_info[
                                 combined_metrics.get("gene_id", "NA")
                             ].append(metric_name)
-                    except Exception as e:
-                        logging.error(f"Error evaluating oddity '{oddity}': {e}")
+                    except (
+                        KeyError,
+                        SyntaxError,
+                        NameError,
+                        TypeError,
+                        ArithmeticError,
+                    ) as e:
+                        logger.error(f"Error evaluating oddity '{oddity}': {e}")
                 # if matched_oddities_tsv is empty, set to None
                 if not matched_oddities_tsv:
                     matched_oddities_tsv.append("None")
@@ -874,192 +897,160 @@ class AnnoOddities:
 
                 # Write combined metrics to file
                 stats_out.write(
-                    "\t".join(
-                        [
-                            tid,
-                            # gene id
-                            combined_metrics.get("gene_id", "NA"),
-                            # chromosome
-                            combined_metrics.get("chrom", "NA"),
-                            # start
-                            str(combined_metrics.get("start", "NA")),
-                            # end
-                            str(combined_metrics.get("end", "NA")),
-                            # region
-                            combined_metrics.get("region", "NA"),
-                            # strand
-                            str(combined_metrics.get("strand", "NA")),
-                            # exon number
-                            str(combined_metrics.get("exon_num", "NA")),
-                            # exon coordinates
-                            str(combined_metrics.get("exons", "NA")),
-                            # exon coordinates lengths
-                            str(combined_metrics.get("exon_lengths", "NA")),
-                            # max exon coordinate length
-                            str(combined_metrics.get("max_exon_length", "NA")),
-                            # min exon coordinate length
-                            str(combined_metrics.get("min_exon_length", "NA")),
-                            # total exon length
-                            str(combined_metrics.get("total_exon_length", "NA")),
-                            # cds exon number
-                            str(combined_metrics.get("cds_exon_num", "NA")),
-                            # cds coordinates
-                            str(combined_metrics.get("cds_exons", "NA")),
-                            # cds coordinates lengths
-                            str(combined_metrics.get("cds_exon_lengths", "NA")),
-                            # max cds coordinate length
-                            str(combined_metrics.get("max_cds_length", "NA")),
-                            # min cds coordinate length
-                            str(combined_metrics.get("min_cds_length", "NA")),
-                            # total cds length
-                            str(combined_metrics.get("total_cds_length", "NA")),
-                            # cds/cdna ratio
-                            str(combined_metrics.get("cds_cdna_ratio", "NA")),
-                            # intron number
-                            str(combined_metrics.get("intron_num", "NA")),
-                            # introns
-                            str(combined_metrics.get("introns", "NA")),
-                            # intron_lengths
-                            str(combined_metrics.get("intron_lengths", "NA")),
-                            # max_intron_length
-                            str(combined_metrics.get("max_intron_length", "NA")),
-                            # min_intron_length
-                            str(combined_metrics.get("min_intron_length", "NA")),
-                            # total intron length
-                            str(combined_metrics.get("total_intron_length", "NA")),
-                            # five_utr_num
-                            str(combined_metrics.get("five_utr_num", "NA")),
-                            # five_utr_length
-                            str(combined_metrics.get("five_utr_length", "NA")),
-                            # three_utr_num
-                            str(combined_metrics.get("three_utr_num", "NA")),
-                            # three_utr_length
-                            str(combined_metrics.get("three_utr_length", "NA")),
-                            # has_start_codon
-                            str(combined_metrics.get("has_start_codon", "NA")),
-                            # has_stop_codon
-                            str(combined_metrics.get("has_stop_codon", "NA")),
-                            # is_complete
-                            str(combined_metrics.get("is_complete", "NA")),
-                            # is_fragment
-                            str(combined_metrics.get("is_fragment", "NA")),
-                            # has_inframe_stop
-                            str(combined_metrics.get("has_inframe_stop", "NA")),
-                            # known_strand_junctions
-                            # known_strand_junctions_dict
-                            str(
-                                {
-                                    k: dict(v)
-                                    for k, v in combined_metrics.get(
-                                        "known_strand_junctions", {}
-                                    ).items()
-                                }
+                    "\t".join([
+                        tid,
+                        # gene id
+                        combined_metrics.get("gene_id", "NA"),
+                        # chromosome
+                        combined_metrics.get("chrom", "NA"),
+                        # start
+                        str(combined_metrics.get("start", "NA")),
+                        # end
+                        str(combined_metrics.get("end", "NA")),
+                        # region
+                        combined_metrics.get("region", "NA"),
+                        # strand
+                        str(combined_metrics.get("strand", "NA")),
+                        # exon number
+                        str(combined_metrics.get("exon_num", "NA")),
+                        # exon coordinates
+                        str(combined_metrics.get("exons", "NA")),
+                        # exon coordinates lengths
+                        str(combined_metrics.get("exon_lengths", "NA")),
+                        # max exon coordinate length
+                        str(combined_metrics.get("max_exon_length", "NA")),
+                        # min exon coordinate length
+                        str(combined_metrics.get("min_exon_length", "NA")),
+                        # total exon length
+                        str(combined_metrics.get("total_exon_length", "NA")),
+                        # cds exon number
+                        str(combined_metrics.get("cds_exon_num", "NA")),
+                        # cds coordinates
+                        str(combined_metrics.get("cds_exons", "NA")),
+                        # cds coordinates lengths
+                        str(combined_metrics.get("cds_exon_lengths", "NA")),
+                        # max cds coordinate length
+                        str(combined_metrics.get("max_cds_length", "NA")),
+                        # min cds coordinate length
+                        str(combined_metrics.get("min_cds_length", "NA")),
+                        # total cds length
+                        str(combined_metrics.get("total_cds_length", "NA")),
+                        # cds/cdna ratio
+                        str(combined_metrics.get("cds_cdna_ratio", "NA")),
+                        # intron number
+                        str(combined_metrics.get("intron_num", "NA")),
+                        # introns
+                        str(combined_metrics.get("introns", "NA")),
+                        # intron_lengths
+                        str(combined_metrics.get("intron_lengths", "NA")),
+                        # max_intron_length
+                        str(combined_metrics.get("max_intron_length", "NA")),
+                        # min_intron_length
+                        str(combined_metrics.get("min_intron_length", "NA")),
+                        # total intron length
+                        str(combined_metrics.get("total_intron_length", "NA")),
+                        # five_utr_num
+                        str(combined_metrics.get("five_utr_num", "NA")),
+                        # five_utr_length
+                        str(combined_metrics.get("five_utr_length", "NA")),
+                        # three_utr_num
+                        str(combined_metrics.get("three_utr_num", "NA")),
+                        # three_utr_length
+                        str(combined_metrics.get("three_utr_length", "NA")),
+                        # has_start_codon
+                        str(combined_metrics.get("has_start_codon", "NA")),
+                        # has_stop_codon
+                        str(combined_metrics.get("has_stop_codon", "NA")),
+                        # is_complete
+                        str(combined_metrics.get("is_complete", "NA")),
+                        # is_fragment
+                        str(combined_metrics.get("is_fragment", "NA")),
+                        # has_inframe_stop
+                        str(combined_metrics.get("has_inframe_stop", "NA")),
+                        # known_strand_junctions
+                        # known_strand_junctions_dict
+                        str({
+                            k: dict(v)
+                            for k, v in combined_metrics.get(
+                                "known_strand_junctions", {}
+                            ).items()
+                        }),
+                        # known_strand_junctions_str
+                        AnnoOddities._join_splice_site_dict(
+                            combined_metrics.get("known_strand_junctions", {})
+                        ),
+                        # unknown_strand_junctions
+                        # unknown_strand_junctions_dict
+                        str({
+                            k: dict(v)
+                            for k, v in combined_metrics.get(
+                                "unknown_strand_junctions", {}
+                            ).items()
+                        }),
+                        # unknown_strand_junctions_str
+                        AnnoOddities._join_splice_site_dict(
+                            combined_metrics.get("unknown_strand_junctions", {})
+                        ),
+                        # canonical_intron_count
+                        str(combined_metrics.get("canonical_intron_count", "NA")),
+                        # non_canonical_intron_count
+                        str(combined_metrics.get("non_canonical_intron_count", "NA")),
+                        # suspicious_intron_count
+                        str(
+                            combined_metrics.get("suspicious_intron_count", "NA"),
+                        ),
+                        # unknown_canonical_intron_count
+                        str(
+                            combined_metrics.get("unknown_canonical_intron_count", "NA")
+                        ),
+                        # unknown_non_canonical_intron_count
+                        str(
+                            combined_metrics.get(
+                                "unknown_non_canonical_intron_count", "NA"
                             ),
-                            # known_strand_junctions_str
-                            AnnoOddities._join_splice_site_dict(
-                                combined_metrics.get("known_strand_junctions", {})
+                        ),
+                        # unknown_suspicious_intron_count
+                        str(
+                            combined_metrics.get(
+                                "unknown_suspicious_intron_count", "NA"
                             ),
-                            # unknown_strand_junctions
-                            # unknown_strand_junctions_dict
-                            str(
-                                {
-                                    k: dict(v)
-                                    for k, v in combined_metrics.get(
-                                        "unknown_strand_junctions", {}
-                                    ).items()
-                                }
-                            ),
-                            # unknown_strand_junctions_str
-                            AnnoOddities._join_splice_site_dict(
-                                combined_metrics.get("unknown_strand_junctions", {})
-                            ),
-                            # canonical_intron_count
-                            str(combined_metrics.get("canonical_intron_count", "NA")),
-                            # non_canonical_intron_count
-                            str(
-                                combined_metrics.get("non_canonical_intron_count", "NA")
-                            ),
-                            # suspicious_intron_count
-                            str(
-                                combined_metrics.get("suspicious_intron_count", "NA"),
-                            ),
-                            # unknown_canonical_intron_count
-                            str(
-                                combined_metrics.get(
-                                    "unknown_canonical_intron_count", "NA"
-                                )
-                            ),
-                            # unknown_non_canonical_intron_count
-                            str(
-                                combined_metrics.get(
-                                    "unknown_non_canonical_intron_count", "NA"
-                                ),
-                            ),
-                            # unknown_suspicious_intron_count
-                            str(
-                                combined_metrics.get(
-                                    "unknown_suspicious_intron_count", "NA"
-                                ),
-                            ),
-                            # unknown_predicted_strand
-                            str(combined_metrics.get("unknown_predicted_strand", "NA")),
-                            # canonical_intron_proportion
-                            str(
-                                combined_metrics.get(
-                                    "canonical_intron_proportion", "NA"
-                                )
-                            ),
-                            # only_non_canonical_splicing
-                            str(
-                                combined_metrics.get(
-                                    "only_non_canonical_splicing", "NA"
-                                )
-                            ),
-                            # suspicious_splicing
-                            str(combined_metrics.get("suspicious_splicing", "NA")),
-                            # matched_oddities
-                            str(combined_metrics.get("matched_oddities", "NA")),
-                        ]
-                    )
+                        ),
+                        # unknown_predicted_strand
+                        str(combined_metrics.get("unknown_predicted_strand", "NA")),
+                        # canonical_intron_proportion
+                        str(combined_metrics.get("canonical_intron_proportion", "NA")),
+                        # only_non_canonical_splicing
+                        str(combined_metrics.get("only_non_canonical_splicing", "NA")),
+                        # suspicious_splicing
+                        str(combined_metrics.get("suspicious_splicing", "NA")),
+                        # matched_oddities
+                        str(combined_metrics.get("matched_oddities", "NA")),
+                    ])
                 )
                 stats_out.write("\n")
 
         return oddity_counts, oddity_tid_info, oddity_gid_info
 
-    @staticmethod
-    def _clean_metric_name(oddity):
-        return (
-            oddity.replace("{", "")
-            .replace("}", "")
-            .replace("==", "eq")
-            .replace(">", "gt")
-            .replace("<=", "lte")
-            .replace("<", "lt")
-            .replace(">=", "gte")
-            .replace("!=", "neq")
-            .replace(" ", "_")
-        )
-
     def run_agat_standardise_gff(self):
         """Run AGAT to standardise GFF3 file"""
-        logging.info("Standardising GFF3 file using AGAT")
+        logger.info("Standardising GFF3 file using AGAT")
         output_gff = self.args.output_prefix + ".agat_standardised.gff"
         output_log = output_gff.replace(".gff", ".log")
 
         if os.path.isfile(output_gff) and not self.force:
-            logging.info(
+            logger.info(
                 f"Skipping agat standardisation, '{output_gff}' already exists. Use --force to rerun."
             )
             self.sanitised_gff = output_gff
             return
 
-        cmd = f"agat_convert_sp_gxf2gxf.pl --gff {self.gff} --output {output_gff} > {output_log} 2>&1"
+        cmd = f"agat_convert_sp_gxf2gxf.pl --gff {self.gff} {self.args.agat_options} --output {output_gff} > {output_log} 2>&1"
         self.process_cmd(cmd)
         self.sanitised_gff = output_gff
 
     def run_agat_sp_statistics(self):
         """Run AGAT to generate statistics from GFF3 file"""
-        logging.info("Generating GFF3 statistics using AGAT")
+        logger.info("Generating GFF3 statistics using AGAT")
         output_stats = self.sanitised_gff.replace(
             ".agat_standardised.gff", ".agat_sp_statistics.txt"
         )
@@ -1075,7 +1066,7 @@ class AnnoOddities:
             and os.path.isfile(output_stats_toml)
             and not self.force
         ):
-            logging.info(
+            logger.info(
                 f"Skipping agat statistics, '{output_stats}', '{output_stats_yaml}', '{output_stats_json}' and '{output_stats_toml}' already exist. Use --force to rerun."
             )
             self.agat_statistics_yaml = output_stats_yaml
@@ -1088,6 +1079,7 @@ class AnnoOddities:
             f"-g {self.genome} "
             f"--gff {self.sanitised_gff} "
             f"--yaml "
+            f"{self.args.agat_options} "
             f"--output {output_stats.replace('.txt', '')} > {output_log} 2>&1 "
             f" && mv {output_stats.replace('.txt', '')} {output_stats}"
         )
@@ -1107,14 +1099,14 @@ class AnnoOddities:
 
     def run_gffread_table(self):
         """Run gffread to generate table from GFF3 file"""
-        logging.info("Generating GFF3 table using gffread")
+        logger.info("Generating GFF3 table using gffread")
         output_table = self.sanitised_gff.replace(
             ".agat_standardised.gff", ".gffread_table.tbl"
         )
         output_log = output_table.replace(".tbl", ".log")
 
         if os.path.isfile(output_table) and not self.force:
-            logging.info(
+            logger.info(
                 f"Skipping gffread table generation, '{output_table}' already exists. Use --force to rerun."
             )
             self.gffread_table = output_table
@@ -1126,6 +1118,7 @@ class AnnoOddities:
             f"-g {self.genome} "
             "-P "
             "--table @id,@geneid,@chr,@start,@end,@strand,@numexons,@exons,@cds,@covlen,@cdslen,InFrameStop,partialness "
+            f"{self.args.gffread_options} "
             f" -o {output_table} > {output_log} 2>&1"
         )
         self.process_cmd(cmd)
@@ -1133,7 +1126,7 @@ class AnnoOddities:
 
     def run_mikado_tab_stats(self):
         """Run Mikado tab-stats to generate metrics from GFF3 file"""
-        logging.info("Generating Mikado tab-stats from GFF3 file")
+        logger.info("Generating Mikado tab-stats from GFF3 file")
         output_tab_stats = self.sanitised_gff.replace(
             ".agat_standardised.gff", ".mikado_tab_stats.tsv"
         )
@@ -1157,7 +1150,7 @@ class AnnoOddities:
             and os.path.isfile(output_stats_toml)
             and not self.force
         ):
-            logging.info(
+            logger.info(
                 f"Skipping Mikado tab-stats generation, '{output_tab_stats}', '{output_stats}', '{output_basic_stats}', '{output_stats_yaml}', '{output_stats_json}' and '{output_stats_toml}' already exist. Use --force to rerun."
             )
             self.mikado_tab_stats = output_tab_stats
@@ -1171,6 +1164,7 @@ class AnnoOddities:
         cmd = (
             "mikado util stats "
             f"{self.sanitised_gff} "
+            f"{self.args.mikado_options} "
             f"--tab-stats {output_tab_stats} > {output_stats} 2> {output_log}"
         )
         self.process_cmd(cmd)
@@ -1184,12 +1178,12 @@ class AnnoOddities:
         self.mikado_stats_json = output_stats_json
         self.mikado_stats_toml = output_stats_toml
         self.mikado_basic_stats = output_basic_stats
-        logging.info(f"Mikado tab-stats written to {self.mikado_tab_stats}")
-        logging.info(f"Mikado stats written to {self.mikado_stats}")
-        logging.info(f"Mikado stats YAML written to {self.mikado_stats_yaml}")
-        logging.info(f"Mikado stats JSON written to {self.mikado_stats_json}")
-        logging.info(f"Mikado stats TOML written to {self.mikado_stats_toml}")
-        logging.info(f"Mikado summary stats written to {self.mikado_basic_stats}")
+        logger.info(f"Mikado tab-stats written to {self.mikado_tab_stats}")
+        logger.info(f"Mikado stats written to {self.mikado_stats}")
+        logger.info(f"Mikado stats YAML written to {self.mikado_stats_yaml}")
+        logger.info(f"Mikado stats JSON written to {self.mikado_stats_json}")
+        logger.info(f"Mikado stats TOML written to {self.mikado_stats_toml}")
+        logger.info(f"Mikado summary stats written to {self.mikado_basic_stats}")
 
     def update_oddities(self):
         """Update oddities with user-specified thresholds"""
@@ -1233,23 +1227,23 @@ class AnnoOddities:
             else:
                 METRIC_ODDITIES_UPDATED.append(oddity)
 
-        logging.debug(
+        logger.debug(
             f"Updated METRIC_ODDITIES with user thresholds: {METRIC_ODDITIES_UPDATED}"
         )
 
         # print the updated oddities for user
-        logging.info("Using the following oddity conditions:")
+        logger.info("Using the following oddity conditions:")
         for oddity in METRIC_ODDITIES_UPDATED:
-            logging.info(f" {oddity}")
+            logger.info(f" {oddity}")
 
         return METRIC_ODDITIES_UPDATED
 
     def process_cmd(self, cmd):
         # capture exit code and log error if non-zero
-        logging.info(f"Running command: {cmd}")
+        logger.info(f"Running command: {cmd}")
         exit_code = os.system(cmd)
         if exit_code != 0:
-            logging.error(f"Command failed with exit code {exit_code}")
+            logger.error(f"Command failed with exit code {exit_code}")
             sys.exit(exit_code)
 
     def combine_statistics_outputs(self):
@@ -1289,9 +1283,9 @@ class AnnoOddities:
         with open(combined_toml, "w") as combined_toml_file:
             toml.dump(combined_data, combined_toml_file)
 
-        logging.info(f"Combined statistics YAML written to '{combined_yaml}'")
-        logging.info(f"Combined statistics JSON written to '{combined_json}'")
-        logging.info(f"Combined statistics TOML written to '{combined_toml}'")
+        logger.info(f"Combined statistics YAML written to '{combined_yaml}'")
+        logger.info(f"Combined statistics JSON written to '{combined_json}'")
+        logger.info(f"Combined statistics TOML written to '{combined_toml}'")
 
     def _get_gff_attribute(self, attrib, field):
         """Get Note field from GFF3 attributes"""
@@ -1387,10 +1381,10 @@ class AnnoOddities:
                 if not skip_main_id:
                     out_gff_fh.write(line)
 
-        logging.info(
+        logger.info(
             f"Extracted transcripts with oddities written to '{output_oddity_gff}'"
         )
-        logging.info(f"Individual oddity GFF3 files written to '{oddity_dir}' folder")
+        logger.info(f"Individual oddity GFF3 files written to '{oddity_dir}' folder")
 
     def write_oddity_to_gff(self, oddity_dir, line, oddity):
         # metric_name = AnnoOddities._clean_metric_name(oddity)
@@ -1409,11 +1403,11 @@ class AnnoOddities:
                 metric_name = oddity.replace("{", "").replace("}", "")
                 f.write(f"{metric_name}\t{count}\n")
 
-        logging.info(f"Oddities summary table written to '{self.oddity_summary}'")
+        logger.info(f"Oddities summary table written to '{self.oddity_summary}'")
 
     def run(self):
-        logging.info("Finding annotation oddities")
-        logging.info(f"Command: {executed_command}")
+        logger.info("Finding annotation oddities")
+        logger.info(f"Command: {executed_command}")
 
         # run agat to standardise gff3
         self.run_agat_standardise_gff()
@@ -1427,25 +1421,25 @@ class AnnoOddities:
         # run mikado tab-stats
         self.run_mikado_tab_stats()
 
-        logging.info("Update oddities as per user thresholds")
+        logger.info("Update oddities as per user thresholds")
         METRIC_ODDITIES_UPDATED = self.update_oddities()
 
         # parse mikado tab-stats and gffread table
-        logging.info("Parsing Mikado tab-stats file")
+        logger.info("Parsing Mikado tab-stats file")
         mikado_data = self.parse_mikado_tab_stats(self.mikado_tab_stats)
 
         # load genome fasta
-        logging.info("Loading genome FASTA file, this may take a while...")
+        logger.info("Loading genome FASTA file, this may take a while...")
         self.genome_db = Fasta(self.args.genome_fasta)
 
-        logging.info("Parsing gffread table file")
+        logger.info("Parsing gffread table file")
         gffread_data = self.parse_gffread_table(self.genome_db, self.gffread_table)
 
         # combine yaml, json and toml outputs from agat and mikado into combined yaml, json and toml
-        logging.info("Combining AGAT and Mikado statistics")
+        logger.info("Combining AGAT and Mikado statistics")
         self.combine_statistics_outputs()
 
-        logging.info("Finding annotation oddities")
+        logger.info("Finding annotation oddities")
         # find oddities
         oddity_counts, self.oddity_tid_info, self.oddity_gid_info = (
             self.calculate_oddities(
@@ -1457,10 +1451,10 @@ class AnnoOddities:
         )
 
         # use oddities info to extract from gff3 if needed
-        logging.info("Separating transcripts with oddities, this may take a while...")
+        logger.info("Separating transcripts with oddities, this may take a while...")
         self.extract_oddity_transcripts()
 
-        logging.info(f"All oddities TSV table written to '{self.all_stats_tsv}'")
+        logger.info(f"All oddities TSV table written to '{self.all_stats_tsv}'")
         # write oddities table
         self.write_oddities_table(oddity_counts)
 
@@ -1569,6 +1563,25 @@ def main():
         action="store_true",
         help="Force rerun even if output files exist",
     )
+    # passthrough options for agat, gffread and mikado
+    parser.add_argument(
+        "--agat_options",
+        type=str,
+        default="",
+        help="Additional options to pass to AGAT (e.g., --agat_options='--some_option value')",
+    )
+    parser.add_argument(
+        "--gffread_options",
+        type=str,
+        default="",
+        help="Additional options to pass to gffread (e.g., --gffread_options='--some_option value')",
+    )
+    parser.add_argument(
+        "--mikado_options",
+        type=str,
+        default="",
+        help="Additional options to pass to Mikado (e.g., --mikado_options='--some_option value')",
+    )
     # verbosity level for logging
     parser.add_argument(
         "--verbosity",
@@ -1582,14 +1595,9 @@ def main():
     # TODO: will use logging.getLevelNamesMapping() later if needed (Added in version 3.11)
     # log_level = logging.getLevelNamesMapping().get(args.verbosity.upper(), logging.INFO)
     log_level = logging.getLevelName(args.verbosity.upper())
-    logging.basicConfig(
-        format="%(asctime)s | %(levelname)-8s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=log_level,
-    )
-
+    logger.setLevel(log_level)
     # check if gffread, gt, mikado are available
-    logging.info("Checking for required tools in PATH")
+    logger.info("Checking for required tools in PATH")
     for tool in [
         "agat",
         "gffread",
@@ -1598,12 +1606,10 @@ def main():
         "agat_sp_statistics.pl",
     ]:
         if not shutil.which(tool):
-            logging.error(f"Required tool '{tool}' not found in PATH")
+            logger.error(f"Required tool '{tool}' not found in PATH")
             sys.exit(1)
         else:
-            logging.info(
-                f"Found required tool in PATH: '{tool}' - {shutil.which(tool)}"
-            )
+            logger.info(f"Found required tool in PATH: '{tool}' - {shutil.which(tool)}")
 
     AnnoOddities(args).run()
 
