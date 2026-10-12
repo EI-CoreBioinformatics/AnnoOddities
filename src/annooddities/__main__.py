@@ -1040,7 +1040,7 @@ class AnnoOddities:
             self.sanitised_gff = output_gff
             return
 
-        cmd = f"agat_convert_sp_gxf2gxf.pl --gff {self.gff} --output {output_gff} > {output_log} 2>&1"
+        cmd = f"agat_convert_sp_gxf2gxf.pl --gff {self.gff} {self.args.agat_options} --output {output_gff} > {output_log} 2>&1"
         self.process_cmd(cmd)
         self.sanitised_gff = output_gff
 
@@ -1075,6 +1075,7 @@ class AnnoOddities:
             f"-g {self.genome} "
             f"--gff {self.sanitised_gff} "
             f"--yaml "
+            f"{self.args.agat_options} "
             f"--output {output_stats.replace('.txt', '')} > {output_log} 2>&1 "
             f" && mv {output_stats.replace('.txt', '')} {output_stats}"
         )
@@ -1113,6 +1114,7 @@ class AnnoOddities:
             f"-g {self.genome} "
             "-P "
             "--table @id,@geneid,@chr,@start,@end,@strand,@numexons,@exons,@cds,@covlen,@cdslen,InFrameStop,partialness "
+            f"{self.args.gffread_options} "
             f" -o {output_table} > {output_log} 2>&1"
         )
         self.process_cmd(cmd)
@@ -1158,6 +1160,7 @@ class AnnoOddities:
         cmd = (
             "mikado util stats "
             f"{self.sanitised_gff} "
+            f"{self.args.mikado_options} "
             f"--tab-stats {output_tab_stats} > {output_stats} 2> {output_log}"
         )
         self.process_cmd(cmd)
@@ -1555,6 +1558,25 @@ def main():
         "--force",
         action="store_true",
         help="Force rerun even if output files exist",
+    )
+    # passthrough options for agat, gffread and mikado
+    parser.add_argument(
+        "--agat_options",
+        type=str,
+        default="",
+        help="Additional options to pass to AGAT (e.g., --agat_options='--some_option value')",
+    )
+    parser.add_argument(
+        "--gffread_options",
+        type=str,
+        default="",
+        help="Additional options to pass to gffread (e.g., --gffread_options='--some_option value')",
+    )
+    parser.add_argument(
+        "--mikado_options",
+        type=str,
+        default="",
+        help="Additional options to pass to Mikado (e.g., --mikado_options='--some_option value')",
     )
     # verbosity level for logging
     parser.add_argument(
