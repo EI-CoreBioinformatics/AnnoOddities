@@ -25,31 +25,44 @@ All installation methods below will install AnnoOddities along with its dependen
 AnnoOddities can be installed with Docker. If you don't have Docker, please install [docker](https://docs.docker.com/get-docker/) first. Then you can pull the Docker image with AnnoOddities installed
 
 ```console
-VERSION=0.2.1
-docker run gemygk/annooddities:v${VERSION} annooddities -h
+version=0.2.1
+docker run gemygk/annooddities:v${version} annooddities -h
 ```
 
-### Singularity Installation
-AnnoOddities can be installed with Singularity. If you don't have Singularity, please install [singularity](https://docs.sylabs.io/guides/3.9/user-guide/quick_start.html#quick-installation-steps) first. Then you can pull the singularity image with AnnoOddities installed.
+### Apptainer/Singularity Installation
+AnnoOddities can be installed with Apptainer/Singularity. If you don't have Apptainer/Singularity, please install [Apptainer](https://apptainer.org/docs/admin/main/installation.html)/[Singularity](https://docs.sylabs.io/guides/3.9/user-guide/quick_start.html#quick-installation-steps) first. Then you can pull the singularity image with AnnoOddities installed.
 
-We can directly run AnnoOddities from the Singularity image hosted on DockerHub
+We can directly run AnnoOddities from the Apptainer/Singularity image hosted on DockerHub
 ```console
-VERSION=0.2.1
-singularity exec docker://gemygk/annooddities:v${VERSION} annooddities -h
+version=0.2.1
+singularity exec docker://gemygk/annooddities:v${version} annooddities -h
 ```
 
-Or, we can build and run a Singularity image, following the steps below:
-```console
-# Create a Singularity definition file, like below:
+Or, we can build and run a Apptainer/Singularity image, following the steps below:
 
+Create a Apptainer/Singularity definition file, like below:
+```console
 $ cat annooddities-0.2.1.def
 bootstrap: docker
 from: gemygk/annooddities:v0.2.1
+```
 
-# Build the Singularity image
+Build the image
+```console
+# Using Apptainer
+$ apptainer build annooddities-0.2.1.sif annooddities-0.2.1.def
+
+# Or using Singularity
+# Singularity requires root privileges to build an image, so you may need to use `sudo` depending on your system configuration.
 $ sudo singularity build annooddities-0.2.1.sif annooddities-0.2.1.def
+```
 
-# Execute AnnoOddities from the Singularity image
+Execute AnnoOddities from the image
+```console
+# Apptainer
+$ apptainer exec annooddities-0.2.1.sif annooddities -h
+
+# Or using Singularity
 $ singularity exec annooddities-0.2.1.sif annooddities -h
 ```
 
@@ -71,7 +84,7 @@ Build and install using [UV](https://github.com/astral-sh/uv?tab=readme-ov-file#
 ```console
 version=0.2.1 \
      && uv build \
-     && pip install --prefix=/path/to/software/annooddities/${version}/x86_64 -U dist/*whl
+     && uv pip install --prefix=/path/to/software/annooddities/${version}/x86_64 --system dist/*whl
 ```
 
 Also, make sure that both `PATH` and `PYTHONPATH` (below is for python3.10) environments are updated
@@ -82,10 +95,8 @@ export PYTHONPATH=/path/to/software/annooddities/${version}/x86_64/lib/python3.1
 
 ### Usage
 ```console
-$ annooddities -h
-usage: annooddities.py [-h] --genome_fasta GENOME_FASTA --gff3_file GFF3_FILE [--five_prime_utr_length FIVE_PRIME_UTR_LENGTH] [--three_prime_utr_length THREE_PRIME_UTR_LENGTH] [--five_utr_num FIVE_UTR_NUM] [--three_utr_num THREE_UTR_NUM]
-                        [--min_intron_length MIN_INTRON_LENGTH] [--max_intron_length MAX_INTRON_LENGTH] [--min_exon_length MIN_EXON_LENGTH] [--max_exon_length MAX_EXON_LENGTH] [--selected_cds_fraction SELECTED_CDS_FRACTION]
-                        [--canonical_intron_motifs CANONICAL_INTRON_MOTIFS] [--output_prefix OUTPUT_PREFIX] [--force] [--verbosity {debug,info,warning,error,critical}]
+$ annooddities --help
+usage: annooddities [-h] --genome_fasta GENOME_FASTA --gff3_file GFF3_FILE [--five_prime_utr_length FIVE_PRIME_UTR_LENGTH] [--three_prime_utr_length THREE_PRIME_UTR_LENGTH] [--five_utr_num FIVE_UTR_NUM] [--three_utr_num THREE_UTR_NUM] [--min_intron_length MIN_INTRON_LENGTH] [--max_intron_length MAX_INTRON_LENGTH] [--min_exon_length MIN_EXON_LENGTH] [--max_exon_length MAX_EXON_LENGTH] [--selected_cds_fraction SELECTED_CDS_FRACTION] [--canonical_intron_motifs CANONICAL_INTRON_MOTIFS] [--output_prefix OUTPUT_PREFIX] [--force] [--agat_options AGAT_OPTIONS] [--gffread_options GFFREAD_OPTIONS] [--mikado_options MIKADO_OPTIONS] [--verbosity {debug,info,warning,error,critical}]
 
 Find annotation oddities from GFF3 and genome FASTA files
 
@@ -98,6 +109,12 @@ optional arguments:
   --output_prefix OUTPUT_PREFIX
                         Provide sample prefix for the output table [default:output]
   --force               Force rerun even if output files exist
+  --agat_options AGAT_OPTIONS
+                        Additional options to pass to AGAT (e.g., --agat_options='--some_option value')
+  --gffread_options GFFREAD_OPTIONS
+                        Additional options to pass to gffread (e.g., --gffread_options='--some_option value')
+  --mikado_options MIKADO_OPTIONS
+                        Additional options to pass to Mikado (e.g., --mikado_options='--some_option value')
   --verbosity {debug,info,warning,error,critical}
                         Set logging verbosity level [default:info]
 
@@ -129,7 +146,7 @@ Oddity Thresholds:
                         This is the proportion of coding sequence to that of the transcript.
                         Values range from 0.0 to 1.0 [default:0.3]
   --canonical_intron_motifs CANONICAL_INTRON_MOTIFS
-                        Comma-separated list of canonical intron motifs. [default:'GT-AG,GC-AG,AT-AC']
+                        Comma-separated list of canonical intron motifs. [default:'AT-AC,GT-AG,GC-AG']
 ```
 
 ## Running AnnoOddities
